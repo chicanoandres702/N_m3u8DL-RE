@@ -1,4 +1,4 @@
-﻿using N_m3u8DL_RE.Common.Log;
+using N_m3u8DL_RE.Common.Log;
 using Spectre.Console;
 using System.Diagnostics;
 using System.IO.Pipes;
@@ -34,16 +34,16 @@ internal static class PipeUtil
         }
     }
 
-    public static async Task<bool> StartPipeMuxAsync(string binary, string[] pipeNames, string outputPath)
+    public static async Task<bool> StartPipeMuxAsync(string binary, string[] pipeNames)
     {
         return await Task.Run(async () =>
         {
             await Task.Delay(1000);
-            return StartPipeMux(binary, pipeNames, outputPath);
+            return StartPipeMux(binary, pipeNames);
         });
     }
 
-    public static bool StartPipeMux(string binary, string[] pipeNames, string outputPath)
+    public static bool StartPipeMux(string binary, string[] pipeNames)
     {
         string dateString = DateTime.Now.ToString("o");
         StringBuilder command = new StringBuilder("-y -fflags +genpts -loglevel quiet ");
@@ -61,7 +61,6 @@ internal static class PipeUtil
             if (OperatingSystem.IsWindows())
                 command.Append($" -i \"\\\\.\\pipe\\{item}\" ");
             else
-                // command.Append($" -i \"unix://{Path.Combine(Path.GetTempPath(), $"CoreFxPipe_{item}")}\" ");
                 command.Append($" -i \"{Path.Combine(pipeDir, item)}\" ");
         }
 
@@ -74,7 +73,8 @@ internal static class PipeUtil
         command.Append($" -metadata date=\"{dateString}\" ");
         command.Append($" -ignore_unknown -copy_unknown ");
 
-
+        // Set the output destination to the TCP address
+        string outputDest = "tcp://0.0.0.0:8181"; // Streaming to TCP address
         if (!string.IsNullOrEmpty(customDest))
         {
             if (customDest.Trim().StartsWith("-"))
@@ -85,7 +85,8 @@ internal static class PipeUtil
         }
         else
         {
-            command.Append($" -f mpegts -shortest \"{outputPath}\"");
+            // Change the output to the TCP stream
+            command.Append($" -f mpegts -shortest {outputDest}");
         }
 
         using var p = new Process();
@@ -97,7 +98,6 @@ internal static class PipeUtil
             CreateNoWindow = true,
             UseShellExecute = false
         };
-        // p.StartInfo.Environment.Add("FFREPORT", "file=ffreport.log:level=42");
         p.Start();
         p.WaitForExit();
 
